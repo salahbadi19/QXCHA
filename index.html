@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ProTrade Ultimate</title>
+    <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        :root {
+            --bg: #000000;
+            --glass: rgba(15, 15, 20, 0.85);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f1f5f9;
+            --text-sub: #64748b;
+            --accent: #3b82f6;
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        html, body { height: 100%; background: var(--bg); color: var(--text); overflow: hidden; }
+        
+        .app { display: flex; flex-direction: column; height: 100dvh; padding-bottom: var(--safe-bottom); position: relative; }
+        
+        .header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; background: var(--glass);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border); z-index: 20;
+        }
+        .header-left { display: flex; align-items: center; gap: 8px; }
+        .pair-info { display: flex; flex-direction: column; align-items: flex-end; order: 2; }
+        .pair-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+        .tf-badge { font-size: 9px; padding: 1px 4px; background: var(--accent); color: #fff; border-radius: 3px; font-weight: 600; }
+        .price-info { text-align: left; order: 1; }
+        .price { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; transition: color 0.2s; }
+        .change { font-size: 12px; font-weight: 600; }
+        .up { color: #00e676; } .down { color: #ef5350; }
+        
+        .icons { display: flex; gap: 8px; }
+        .icon-btn {
+            background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+            width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--text-sub); transition: all 0.2s;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+        .icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.15); }
+        .icon-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+        .chart-wrapper { flex: 1; position: relative; overflow: hidden; }
+        #chart { width: 100%; height: 100%; }
+        
+        /* Stats Card - Bottom Left */
+        .glass-card {
+            position: absolute; bottom: 68px; left: 12px; width: 175px;
+            background: rgba(10, 12, 16, 0.94); backdrop-filter: blur(16px);
+            border: 1px solid var(--border); border-radius: 16px; padding: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.7); transition: all 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+            opacity: 1; transform: translateY(0); pointer-events: auto; z-index: 30;
+        }
+        .glass-card.hidden { transform: translateY(20px); opacity: 0; pointer-events: none; }
+        .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        .card-title { font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+        .close-card {
+            background: rgba(255,255,255,0.1); border: none; color: var(--text-sub);
+            width: 26px; height: 26px; border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .close-card:hover { background: rgba(255,255,255,0.2); color: var(--text); }
+        .close-card:active { background: rgba(255,255,255,0.2); }
+        .close-card svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2.5; }
+        .stat-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
+        .stat-label { display: flex; align-items: center; gap: 6px; color: var(--text-sub); }
+        .stat-val { font-weight: 700; font-variant-numeric: tabular-nums; }
+        .win { color: #00e676; } .loss { color: #ef5350; } .rate { color: var(--accent); }
+        .progress-bar { height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #60a5fa); transition: width 0.5s; border-radius: 3px; }
+
+        /* Arrow Button - Bottom Left */
+        .arrow-btn {
+            position: absolute; bottom: 12px; left: 12px; width: 48px; height: 48px;
+            background: rgba(10, 12, 16, 0.94); border: 1px solid var(--border);
+            border-radius: 14px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--accent); box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+            transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1); z-index: 30;
+        }
+        .arrow-btn:hover { background: rgba(20, 25, 35, 0.98); border-color: var(--accent); }
+        .arrow-btn.hidden { transform: translateY(20px) scale(0.8); opacity: 0; pointer-events: none; }
+        .arrow-btn:active { transform: scale(0.95); }
+        .arrow-btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* Modals */
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+            opacity: 0; visibility: hidden; transition: all 0.3s; z-index: 40;
+        }
+        .overlay.active { opacity: 1; visibility: visible; }
+        
+        .sheet {
+            position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh;
+            background: #0a0c10; border-top-left-radius: 20px; border-top-right-radius: 20px;
+            border-top: 1px solid var(--border); transform: translateY(100%);
+            transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1); z-index: 41;
+            display: flex; flex-direction: column; padding-bottom: var(--safe-bottom);
+        }
+        .sheet.active { transform: translateY(0); }
+        
+        .sheet-head { padding: 16px 18px 10px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .sheet-head h2 { font-size: 15px; font-weight: 600; }
+        .close-btn { background: none; border: none; color: var(--text-sub); font-size: 20px; cursor: pointer; }
+        .close-btn:hover { color: var(--text); }
+        
+        .sheet-body { padding: 16px; overflow-y: auto; flex: 1; }
+
+        .setting-group { margin-bottom: 20px; }
+        .group-title { font-size: 12px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: 700; }
+        
+        .setting-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-label { font-size: 14px; font-weight: 500; }
+        
+        .color-input-wrap {
+            position: relative; width: 32px; height: 32px; border-radius: 50%; overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.1); cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+        .color-input-wrap input {
+            position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            cursor: pointer; border: none; padding: 0;
+        }
+
+        .themes-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+        .theme-btn {
+            padding: 10px 4px; border-radius: 8px; border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03); text-align: center; font-size: 11px; font-weight: 600;
+            cursor: pointer; color: var(--text-sub); transition: all 0.2s;
+        }
+        .theme-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+        .theme-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .tile {
+            padding: 12px 6px; border-radius: 8px; border: 1px solid var(--border);
+            background: rgba(255,255,255,0.02); text-align: center; font-size: 13px; font-weight: 600;
+            cursor: pointer; color: var(--text-sub); transition: all 0.2s;
+        }
+        .tile:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+        .tile.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        .search-box {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px;
+            padding: 10px 12px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+        }
+        .search-box input { flex: 1; background: none; border: none; color: var(--text); font-size: 14px; outline: none; }
+        .search-box input::placeholder { color: var(--text-sub); }
+    </style>
+<base target="_blank">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="header-left">
+                <button class="icon-btn" onclick="openModal('settings')" aria-label="الإعدادات">
+                    <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+                <button class="icon-btn" onclick="openModal('timeframes')" aria-label="الفريمات">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </button>
+                <button class="icon-btn" onclick="openModal('currencies')" aria-label="العملات">
+                    <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </button>
+            </div>
+            <div class="price-info">
+                <div class="price" id="price">0.00</div>
+                <div class="change" id="change">+0.00%</div>
+            </div>
+            <div class="pair-info">
+                <div class="pair-title"><span class="tf-badge" id="tf-badge">1H</span> <span id="pair-name">BTC/USDT</span></div>
+            </div>
+        </header>
+
+        <div class="chart-wrapper">
+            <div id="chart"></div>
+            
+            <!-- Stats Card -->
+            <div id="stats-card" class="glass-card">
+                <div class="card-head">
+                    <span class="card-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
+                        أداء الإشارات
+                    </span>
+                    <button class="close-card" onclick="toggleStats(false)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        ناجحة
+                    </span>
+                    <span class="stat-val win" id="wins">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef5350" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        خاسرة
+                    </span>
+                    <span class="stat-val loss" id="losses">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                        نسبة النجاح
+                    </span>
+                    <span class="stat-val rate" id="win-rate">0%</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width: 0%"></div></div>
+            </div>
+            
+            <!-- Arrow Button -->
+            <div id="arrow-btn" class="arrow-btn hidden" onclick="toggleStats(true)">
+                <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="overlay" id="overlay-settings" onclick="closeModal('settings')"></div>
+    <div class="sheet" id="sheet-settings">
+        <div class="sheet-head"><h2>الإعدادات</h2><button class="close-btn" onclick="closeModal('settings')">✕</button></div>
+        <div class="sheet-body">
+            <div class="setting-group">
+                <div class="group-title">النمط العام</div>
+                <div class="themes-grid" id="themes-grid"></div>
+            </div>
+            <div class="setting-group">
+                <div class="group-title">الشارت والخلفية</div>
+                <div class="setting-row"><span class="setting-label">الخلفية</span><div class="color-input-wrap" style="background:#000"><input type="color" id="bgColor" value="#000000"></div></div>
+                <div class="setting-row"><span class="setting-label">خطوط الشبكة</span><div class="color-input-wrap" style="background:rgba(255,255,255,0.03)"><input type="color" id="gridColor" value="#111111"></div></div>
+                <div class="setting-row"><span class="setting-label">النصوص</span><div class="color-input-wrap" style="background:#64748b"><input type="color" id="textColor" value="#64748b"></div></div>
+            </div>
+            <div class="setting-group">
+                <div class="group-title">الشمعة الصاعدة (Up)</div>
+                <div class="setting-row"><span class="setting-label">الجسم</span><div class="color-input-wrap" style="background:#00e676"><input type="color" id="upBody" value="#00e676"></div></div>
+                <div class="setting-row"><span class="setting-label">الذيل</span><div class="color-input-wrap" style="background:#00e676"><input type="color" id="upWick" value="#00e676"></div></div>
+                <div class="setting-row"><span class="setting-label">الحدود</span><div class="color-input-wrap" style="background:#00e676"><input type="color" id="upBorder" value="#00e676"></div></div>
+            </div>
+            <div class="setting-group">
+                <div class="group-title">الشمعة الهابطة (Down)</div>
+                <div class="setting-row"><span class="setting-label">الجسم</span><div class="color-input-wrap" style="background:#2962ff"><input type="color" id="downBody" value="#2962ff"></div></div>
+                <div class="setting-row"><span class="setting-label">الذيل</span><div class="color-input-wrap" style="background:#2962ff"><input type="color" id="downWick" value="#2962ff"></div></div>
+                <div class="setting-row"><span class="setting-label">الحدود</span><div class="color-input-wrap" style="background:#2962ff"><input type="color" id="downBorder" value="#2962ff"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeframes -->
+    <div class="overlay" id="overlay-timeframes" onclick="closeModal('timeframes')"></div>
+    <div class="sheet" id="sheet-timeframes">
+        <div class="sheet-head"><h2>الإطار الزمني</h2><button class="close-btn" onclick="closeModal('timeframes')">✕</button></div>
+        <div class="sheet-body">
+            <div class="grid" id="tf-grid"></div>
+        </div>
+    </div>
+
+    <!-- Currencies -->
+    <div class="overlay" id="overlay-currencies" onclick="closeModal('currencies')"></div>
+    <div class="sheet" id="sheet-currencies">
+        <div class="sheet-head"><h2>العملات</h2><button class="close-btn" onclick="closeModal('currencies')">✕</button></div>
+        <div class="sheet-body">
+            <div class="search-box"><input type="text" id="curr-search" placeholder="بحث..."></div>
+            <div class="grid" id="curr-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        const colors = {
+            bg: '#000000', grid: '#000000', text: '#00ffff',
+            upBody: '#26e600', upWick: '#13e600', upBorder: '#2ee600',
+            downBody: '#000000', downWick: '#1700e4', downBorder: '#0011ff'
+        };
+        const currenciesList = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'XRP/USDT', 'ADA/USDT', 'DOGE/USDT', 'AVAX/USDT'];
+        const timeframes = [
+            { l: '1s', v: 1 }, { l: '5s', v: 5 }, { l: '10s', v: 10 }, { l: '15s', v: 15 }, { l: '30s', v: 30 },
+            { l: '1m', v: 60 }, { l: '2m', v: 120 }, { l: '3m', v: 180 }, { l: '5m', v: 300 }, { l: '10m', v: 600 },
+            { l: '15m', v: 900 }, { l: '30m', v: 1800 }, { l: '1H', v: 3600 }
+        ];
+        const themes = {
+            'Dark': { bg: '#000000', grid: '#111111', text: '#64748b', up: '#209e00', down: '#0300a1' },
+            'Light': { bg: '#ffffff', grid: '#e0e0e0', text: '#666666', up: '#0400ff', down: '#ff0400' },
+            'Cyber': { bg: '#0a0b10', grid: '#1a1d24', text: '#7289da', up: '#00fc8a', down: '#ff0000' },
+            'Classic': { bg: '#131722', grid: '#2a2e39', text: '#d1d4dc', up: '#009980', down: '#ff0015' }
+        };
+
+        let currentPair = 'BTC/USDT';
+        let currentTF = timeframes[12];
+        let chartData = [];
+        let signals = [];
+
+        const chartEl = document.getElementById('chart');
+
+        const chart = LightweightCharts.createChart(chartEl, {
+            width: chartEl.clientWidth, height: chartEl.clientHeight,
+            layout: { background: { type: 'solid', color: colors.bg }, textColor: colors.text, fontSize: 11 },
+            grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
+            rightPriceScale: { borderColor: 'transparent', autoScale: true },
+            timeScale: {
+                borderColor: 'transparent',
+                barSpacing: 10,
+                rightOffset: 5,
+                kineticScroll: { touch: true, mouse: true }
+            },
+            crosshair: {
+                mode: LightweightCharts.CrosshairMode.Normal,
+                vertLine: { color: 'rgba(255,255,255,0.2)', labelBackgroundColor: '#1a1a2e' }
+            },
+            handleScroll: {
+                vertTouchDrag: false,
+                horzTouchDrag: true,
+                touchMouseMove: true,
+                kineticScroll: { touch: true, mouse: true },
+                mouseWheel: true,
+                pressedMouseMove: true
+            },
+            handleScale: {
+                pinch: true,
+                mouseWheel: true,
+                axisPressedMouseMove: {
+                    time: true,
+                    price: true
+                },
+                axisDoubleClickReset: true
+            },
+            localization: { locale: 'en-US' }
+        });
+
+        const candleSeries = chart.addCandlestickSeries({
+            upColor: colors.upBody, downColor: colors.downBody,
+            borderUpColor: colors.upBorder, borderDownColor: colors.downBorder,
+            wickUpColor: colors.upWick, wickDownColor: colors.downWick
+        });
+        const lineSeries = chart.addLineSeries({ color: '#ffffff', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+        lineSeries.applyOptions({ visible: false });
+
+        function generateData(tf, base, count = 800) {
+            const data = [];
+            let price = base;
+            let now = Math.floor(Date.now() / 1000);
+            let volatility = tf.v === 1 ? 15 : (tf.v < 300 ? 40 : 150);
+            for (let i = count; i >= 0; i--) {
+                const change = (Math.random() - 0.5) * volatility;
+                const open = price;
+                const close = price + change;
+                const high = Math.max(open, close) + Math.random() * (volatility * 0.4);
+                const low = Math.min(open, close) - Math.random() * (volatility * 0.4);
+                data.push({ time: now - i * tf.v, open: +open.toFixed(2), high: +high.toFixed(2), low: +low.toFixed(2), close: +close.toFixed(2) });
+                price = close;
+            }
+            return data;
+        }
+
+        function generateSignals(data) {
+            signals = [];
+            const step = 40;
+            for (let i = step; i < data.length - 10; i += step) {
+                const candle = data[i];
+                const type = Math.random() > 0.5 ? 'buy' : 'sell';
+                const price = type === 'buy' ? candle.low * 0.998 : candle.high * 1.002;
+                let result = 'loss';
+                if (i + 5 < data.length) {
+                    const futureCandle = data[i + 5];
+                    if (type === 'buy' && futureCandle.close > candle.close) result = 'win';
+                    if (type === 'sell' && futureCandle.close < candle.close) result = 'win';
+                }
+                signals.push({ time: candle.time, price, type, result });
+            }
+            applyMarkers();
+            updateStats();
+        }
+
+        function applyMarkers() {
+            const markers = signals.map(sig => ({
+                time: sig.time,
+                position: sig.type === 'buy' ? 'belowBar' : 'aboveBar',
+                color: sig.type === 'buy' ? '#13e600' : '#ff0400',
+                shape: sig.type === 'buy' ? 'arrowUp' : 'arrowDown',
+                text: sig.result === 'win' ? '✓' : '✗',
+                size: 2
+            }));
+            candleSeries.setMarkers(markers);
+        }
+
+        function updateStats() {
+            const wins = signals.filter(s => s.result === 'win').length;
+            const losses = signals.length - wins;
+            const rate = signals.length > 0 ? Math.round((wins / signals.length) * 100) : 0;
+            document.getElementById('wins').textContent = wins;
+            document.getElementById('losses').textContent = losses;
+            document.getElementById('win-rate').textContent = rate + '%';
+            document.getElementById('progress-fill').style.width = rate + '%';
+        }
+
+        function applyCandleColors() {
+            if (currentTF.l === '1s') {
+                lineSeries.applyOptions({ color: colors.upBody });
+            } else {
+                candleSeries.applyOptions({
+                    upColor: colors.upBody, downColor: colors.downBody,
+                    borderUpColor: colors.upBorder, borderDownColor: colors.downBorder,
+                    wickUpColor: colors.upWick, wickDownColor: colors.downWick
+                });
+            }
+        }
+
+        function loadChart() {
+            const base = currentPair.startsWith('BTC') ? 42000 : 2200;
+            chartData = generateData(currentTF, base);
+            
+            if (currentTF.l === '1s') {
+                candleSeries.applyOptions({ visible: false });
+                lineSeries.applyOptions({ visible: true, color: colors.upBody });
+                lineSeries.setData(chartData.map(d => ({ time: d.time, value: d.close })));
+                candleSeries.setMarkers([]);
+                signals = [];
+                updateStats();
+            } else {
+                lineSeries.applyOptions({ visible: false });
+                candleSeries.applyOptions({ visible: true });
+                applyCandleColors();
+                candleSeries.setData(chartData);
+                generateSignals(chartData);
+            }
+            
+            document.getElementById('tf-badge').textContent = currentTF.l;
+            document.getElementById('pair-name').textContent = currentPair;
+            updateHeader(chartData);
+        }
+
+        function updateHeader(data) {
+            const last = data[data.length - 1];
+            const prev = data[data.length - 2];
+            const pct = ((last.close - prev.open) / prev.open) * 100;
+            const isUp = pct >= 0;
+            const priceEl = document.getElementById('price');
+            priceEl.textContent = last.close.toLocaleString('en-US', { minimumFractionDigits: 2 });
+            priceEl.className = `price ${isUp ? 'up' : 'down'}`;
+            priceEl.style.color = isUp ? colors.upBody : colors.downBody;
+            const chgEl = document.getElementById('change');
+            chgEl.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
+            chgEl.className = `change ${isUp ? 'up' : 'down'}`;
+        }
+
+        loadChart();
+
+        // ── Modal helpers ─────────────────────────────────────────────────────
+        function openModal(id) {
+            document.getElementById(`sheet-${id}`).classList.add('active');
+            document.getElementById(`overlay-${id}`).classList.add('active');
+        }
+        function closeModal(id) {
+            document.getElementById(`sheet-${id}`).classList.remove('active');
+            document.getElementById(`overlay-${id}`).classList.remove('active');
+        }
+
+        function toggleStats(show) {
+            document.getElementById('stats-card').classList.toggle('hidden', !show);
+            document.getElementById('arrow-btn').classList.toggle('hidden', show);
+        }
+
+        // ── Timeframes grid ───────────────────────────────────────────────────
+        const tfGrid = document.getElementById('tf-grid');
+        timeframes.forEach(tf => {
+            const d = document.createElement('div');
+            d.className = `tile ${tf.l === currentTF.l ? 'active' : ''}`;
+            d.textContent = tf.l;
+            d.onclick = () => {
+                currentTF = tf;
+                tfGrid.querySelectorAll('.tile').forEach(t => t.classList.remove('active'));
+                d.classList.add('active');
+                closeModal('timeframes');
+                loadChart();
+            };
+            tfGrid.appendChild(d);
+        });
+
+        // ── Currencies grid ───────────────────────────────────────────────────
+        const currGrid = document.getElementById('curr-grid');
+        currenciesList.forEach(c => {
+            const d = document.createElement('div');
+            d.className = `tile ${c === currentPair ? 'active' : ''}`;
+            d.textContent = c.split('/')[0];
+            d.onclick = () => {
+                currentPair = c;
+                currGrid.querySelectorAll('.tile').forEach(t => t.classList.remove('active'));
+                d.classList.add('active');
+                closeModal('currencies');
+                loadChart();
+            };
+            currGrid.appendChild(d);
+        });
+        document.getElementById('curr-search').oninput = e => {
+            const q = e.target.value.toLowerCase();
+            currGrid.querySelectorAll('.tile').forEach(t => {
+                t.style.display = t.textContent.toLowerCase().includes(q) ? 'block' : 'none';
+            });
+        };
+
+        // ── Settings color pickers ────────────────────────────────────────────
+        const settingsMap = {
+            'bgColor': v => { colors.bg = v; chart.applyOptions({ layout: { background: { type: 'solid', color: v } } }); },
+            'gridColor': v => { colors.grid = v; chart.applyOptions({ grid: { vertLines: { color: v }, horzLines: { color: v } } }); },
+            'textColor': v => { colors.text = v; chart.applyOptions({ layout: { textColor: v } }); },
+            'upBody': v => { colors.upBody = v; applyCandleColors(); },
+            'upWick': v => { colors.upWick = v; applyCandleColors(); },
+            'upBorder': v => { colors.upBorder = v; applyCandleColors(); },
+            'downBody': v => { colors.downBody = v; applyCandleColors(); },
+            'downWick': v => { colors.downWick = v; applyCandleColors(); },
+            'downBorder': v => { colors.downBorder = v; applyCandleColors(); }
+        };
+        Object.keys(settingsMap).forEach(id => {
+            const input = document.getElementById(id);
+            if (input) input.oninput = e => settingsMap[id](e.target.value);
+        });
+
+        // ── Themes ────────────────────────────────────────────────────────────
+        const themesGrid = document.getElementById('themes-grid');
+        Object.keys(themes).forEach(name => {
+            const btn = document.createElement('div');
+            btn.className = 'theme-btn';
+            btn.textContent = name;
+            btn.onclick = () => {
+                themesGrid.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                applyTheme(themes[name]);
+            };
+            themesGrid.appendChild(btn);
+        });
+
+        function applyTheme(t) {
+            colors.bg = t.bg; colors.grid = t.grid; colors.text = t.text;
+            colors.upBody = t.up; colors.upWick = t.up; colors.upBorder = t.up;
+            colors.downBody = t.down; colors.downWick = t.down; colors.downBorder = t.down;
+            
+            document.getElementById('bgColor').value = t.bg;
+            document.getElementById('gridColor').value = t.grid;
+            document.getElementById('textColor').value = t.text;
+            ['upBody','upWick','upBorder'].forEach(id => document.getElementById(id).value = t.up);
+            ['downBody','downWick','downBorder'].forEach(id => document.getElementById(id).value = t.down);
+
+            chart.applyOptions({
+                layout: { background: { type: 'solid', color: t.bg }, textColor: t.text },
+                grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } }
+            });
+            applyCandleColors();
+            loadChart();
+        }
+
+        // ── Resize observer ───────────────────────────────────────────────────
+        let resizeTimeout;
+        new ResizeObserver(() => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                chart.applyOptions({ width: chartEl.clientWidth, height: chartEl.clientHeight });
+            }, 100);
+        }).observe(chartEl);
+    </script>
+</body>
+</html>
