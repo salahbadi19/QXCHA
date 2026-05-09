@@ -181,8 +181,8 @@
         <div class="chart-wrapper">
             <div id="chart"></div>
             
-            <!-- Stats Card -->
-            <div id="stats-card" class="glass-card">
+            <!-- Stats Card (Hidden by default) -->
+            <div id="stats-card" class="glass-card hidden">
                 <div class="card-head">
                     <span class="card-title">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
@@ -216,8 +216,8 @@
                 <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width: 0%"></div></div>
             </div>
             
-            <!-- Arrow Button -->
-            <div id="arrow-btn" class="arrow-btn hidden" onclick="toggleStats(true)">
+            <!-- Arrow Button (Visible by default) -->
+            <div id="arrow-btn" class="arrow-btn" onclick="toggleStats(true)">
                 <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
             </div>
         </div>
@@ -302,9 +302,12 @@
             width: chartEl.clientWidth, height: chartEl.clientHeight,
             layout: { background: { type: 'solid', color: colors.bg }, textColor: colors.text, fontSize: 11 },
             grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
-            rightPriceScale: { borderColor: 'transparent', autoScale: true },
+            rightPriceScale: { 
+                borderColor: colors.text,  // ← تم تغيير لون الحدود ليتطابق مع لون النصوص
+                autoScale: true 
+            },
             timeScale: {
-                borderColor: 'transparent',
+                borderColor: colors.text,  // ← تم تغيير لون حدود محور الوقت أيضاً
                 barSpacing: 10,
                 rightOffset: 5,
                 kineticScroll: { touch: true, mouse: true }
@@ -508,7 +511,14 @@
         const settingsMap = {
             'bgColor': v => { colors.bg = v; chart.applyOptions({ layout: { background: { type: 'solid', color: v } } }); },
             'gridColor': v => { colors.grid = v; chart.applyOptions({ grid: { vertLines: { color: v }, horzLines: { color: v } } }); },
-            'textColor': v => { colors.text = v; chart.applyOptions({ layout: { textColor: v } }); },
+            'textColor': v => { 
+                colors.text = v; 
+                chart.applyOptions({ 
+                    layout: { textColor: v },
+                    rightPriceScale: { borderColor: v },
+                    timeScale: { borderColor: v }
+                }); 
+            },
             'upBody': v => { colors.upBody = v; applyCandleColors(); },
             'upWick': v => { colors.upWick = v; applyCandleColors(); },
             'upBorder': v => { colors.upBorder = v; applyCandleColors(); },
@@ -548,7 +558,9 @@
 
             chart.applyOptions({
                 layout: { background: { type: 'solid', color: t.bg }, textColor: t.text },
-                grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } }
+                grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } },
+                rightPriceScale: { borderColor: t.text },
+                timeScale: { borderColor: t.text }
             });
             applyCandleColors();
             loadChart();
